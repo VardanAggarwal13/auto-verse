@@ -1,0 +1,19 @@
+# Logs
+logs
+*.log
+
+# Dependencies
+node_modules
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Common build/test outputs
+dist
+build
+coverage
+
+# Uploaded files (local fallback when Cloudinary isn't configured)
+uploads
