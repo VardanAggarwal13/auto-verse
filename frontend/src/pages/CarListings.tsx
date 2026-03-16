@@ -20,6 +20,7 @@ const sortOptions = [
 const CarListings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [vehicles, setVehicles] = useState([]);
+  const [brandOptions, setBrandOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -29,6 +30,39 @@ const CarListings = () => {
   const [fuel, setFuel] = useState("All");
   const [transmission, setTransmission] = useState("All");
   const [sort, setSort] = useState("latest");
+
+  const toTitleCase = (value: string) =>
+    value
+      .toLowerCase()
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+
+  const buildBrandOptions = (items: any[]) => {
+    const byKey = new Map<string, { value: string; label: string }>();
+    for (const v of items) {
+      const raw = String(v?.brand || "").trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (!byKey.has(key)) byKey.set(key, { value: raw, label: toTitleCase(raw) });
+    }
+    return Array.from(byKey.values()).sort((a, b) => a.label.localeCompare(b.label));
+  };
+
+  useEffect(() => {
+    const loadBrands = async () => {
+      try {
+        const response = await apiClient.get("/vehicles");
+        const data = Array.isArray(response.data) ? response.data : [];
+        setBrandOptions(buildBrandOptions(data));
+      } catch (error) {
+        console.error("Failed to fetch brand options", error);
+      }
+    };
+
+    loadBrands();
+  }, []);
 
   useEffect(() => {
     fetchVehicles();
@@ -55,6 +89,9 @@ const CarListings = () => {
       if (sort === "price-desc") data.sort((a: any, b: any) => b.price - a.price);
 
       setVehicles(data);
+      if (brandOptions.length === 0) {
+        setBrandOptions(buildBrandOptions(Array.isArray(data) ? data : []));
+      }
     } catch (error) {
       console.error("Failed to fetch vehicles", error);
     } finally {
@@ -98,11 +135,11 @@ const CarListings = () => {
                 <SelectTrigger className="w-full md:w-44 h-11"><SelectValue placeholder="Brand" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="All">All Brands</SelectItem>
-                  <SelectItem value="Tesla">Tesla</SelectItem>
-                  <SelectItem value="BMW">BMW</SelectItem>
-                  <SelectItem value="Audi">Audi</SelectItem>
-                  <SelectItem value="Mercedes">Mercedes</SelectItem>
-                  <SelectItem value="Toyota">Toyota</SelectItem>
+                  {brandOptions.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>
+                      {b.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Button type="submit" className="h-11 px-8">Search</Button>

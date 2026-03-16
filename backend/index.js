@@ -102,7 +102,23 @@ app.use('/api/uploads', uploadRoutes);
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
 
-mongoose.connect(MONGODB_URI)
+if (!MONGODB_URI) {
+  console.error('MongoDB connection error: MONGODB_URI is not set');
+  process.exit(1);
+}
+
+const mongoFamilyRaw = (process.env.MONGO_FAMILY || '').trim();
+const mongoFamily = mongoFamilyRaw ? Number(mongoFamilyRaw) : undefined;
+
+mongoose.connect(MONGODB_URI, {
+  ...(mongoFamily ? { family: mongoFamily } : {}),
+  serverSelectionTimeoutMS: process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS
+    ? Number(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS)
+    : undefined,
+  connectTimeoutMS: process.env.MONGO_CONNECT_TIMEOUT_MS
+    ? Number(process.env.MONGO_CONNECT_TIMEOUT_MS)
+    : undefined,
+})
   .then(() => {
     console.log('Connected to MongoDB');
     server.listen(PORT, () => {

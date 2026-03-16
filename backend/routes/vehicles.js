@@ -3,6 +3,8 @@ const router = express.Router();
 const Vehicle = require('../models/Vehicle');
 const { auth, checkRole } = require('../middleware/auth');
 
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // @route   GET api/vehicles/dealer
 // @desc    Get current dealer's vehicles
 // @access  Private (Dealer)
@@ -24,7 +26,7 @@ router.get('/', async (req, res) => {
     const { brand, fuelType, transmission, minPrice, maxPrice } = req.query;
     let query = { status: 'available' };
 
-    if (brand) query.brand = brand;
+    if (brand) query.brand = new RegExp(`^${escapeRegExp(brand)}$`, 'i');
     if (fuelType) query.fuelType = fuelType;
     if (transmission) query.transmission = transmission;
     if (minPrice || maxPrice) {

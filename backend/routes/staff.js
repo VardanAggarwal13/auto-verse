@@ -7,6 +7,10 @@ const Vehicle = require('../models/Vehicle');
 const { auth, checkRole } = require('../middleware/auth');
 
 const isValidServiceType = (value) => ['maintenance', 'repair', 'inspection', 'customization'].includes(value);
+const isInspectionPass = (inspection) => {
+  const ok = new Set(['excellent', 'good']);
+  return ok.has(inspection.engineStatus) && ok.has(inspection.exteriorStatus) && ok.has(inspection.interiorStatus) && ok.has(inspection.tiresStatus);
+};
 
 // @route   GET api/staff/customers
 // @desc    Get customers list (for staff workflows)
@@ -144,6 +148,32 @@ router.post('/inspections', [auth, checkRole(['staff', 'admin'])], async (req, r
     const newInspection = new VehicleInspection(inspectionData);
     const inspection = await newInspection.save();
     res.json(inspection);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/staff/inspections
+// @desc    Get all inspections (staff/admin)
+// @access  Private (Staff, Admin)
+router.get('/inspections', [auth, checkRole(['staff', 'admin'])], async (req, res) => {
+  try {
+    const inspections = await VehicleInspection.find()
+      .populate('vehicle', 'title brand model year')
+      .populate('inspector', 'name')
+      .sort('-inspectionDate')
+      .limit(50);
+
+    res.json(
+      inspections.map((i) => ({
+        id: `INS-${String(i._id).slice(-6).toUpperCase()}`,
+        vehicle: i.vehicle?.title || `${i.vehicle?.brand || ''} ${i.vehicle?.model || ''}`.trim() || 'Vehicle',
+        result: isInspectionPass(i) ? 'Pass' : 'Requires Maintenance',
+        date: i.inspectionDate ? new Date(i.inspectionDate).toISOString().slice(0, 10) : '',
+        inspector: i.inspector?.name || 'Inspector',
+      })),
+    );
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
