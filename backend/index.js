@@ -9,9 +9,12 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 
+// Required when running behind proxies (e.g., Render) so req.protocol works via X-Forwarded-Proto.
+app.set('trust proxy', 1);
+
 const corsOriginsRaw = (process.env.CORS_ORIGINS || '').trim();
 const allowedOrigins = corsOriginsRaw
-  ? corsOriginsRaw.split(',').map(o => o.trim()).filter(Boolean)
+  ? corsOriginsRaw.split(',').map((o) => o.trim()).filter(Boolean)
   : [
       'http://localhost:8080',
       'http://localhost:5173',
@@ -21,17 +24,61 @@ const allowedOrigins = corsOriginsRaw
       'http://127.0.0.1:3000',
     ];
 
+const parseOrigin = (origin) => {
+  try {
+    return new URL(origin);
+  } catch {
+    return null;
+  }
+};
+
+// Supports:
+// - Exact match: https://example.com
+// - Host wildcard: *.vercel.app or https://*.vercel.app
+// - Optional port: http://localhost:5173 or *.example.com:443
+const originMatchesRule = (originUrl, rule) => {
+  if (!originUrl) return false;
+  if (rule === '*') return true;
+  if (rule === originUrl.origin) return true;
+
+  const hasScheme = rule.includes('://');
+  const [ruleScheme, ruleRest] = hasScheme ? rule.split('://') : [null, rule];
+  const hostPort = (ruleRest || '').split('/')[0].trim();
+  if (!hostPort) return false;
+
+  const [ruleHostRaw, rulePortRaw] = hostPort.split(':');
+  const ruleHost = (ruleHostRaw || '').trim().toLowerCase();
+  const rulePort = (rulePortRaw || '').trim();
+  if (!ruleHost) return false;
+
+  if (ruleScheme && `${ruleScheme.toLowerCase()}:` !== originUrl.protocol) return false;
+  if (rulePort && rulePort !== originUrl.port) return false;
+
+  const originHost = originUrl.hostname.toLowerCase();
+  if (ruleHost.startsWith('*.')) {
+    const suffix = ruleHost.slice(1); // ".vercel.app"
+    return originHost.endsWith(suffix);
+  }
+
+  return originHost === ruleHost;
+};
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // same-origin / non-browser clients
+  const originUrl = parseOrigin(origin);
+  if (!originUrl) return false;
+  return allowedOrigins.some((rule) => originMatchesRule(originUrl, rule));
+};
+
 // Middleware
 app.use(cors({
   // If CORS_ORIGINS="*", reflect request origin (works with credentials).
   origin: allowedOrigins.includes('*')
     ? true
     : (origin, callback) => {
-        // Allow same-origin and non-browser clients without an Origin header.
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
+        if (isOriginAllowed(origin)) return callback(null, true);
         return callback(new Error(`CORS blocked origin: ${origin}`));
-  },
+      },
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -50,7 +97,12 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins.includes('*') ? "*" : allowedOrigins,
+    origin: allowedOrigins.includes('*')
+      ? '*'
+      : (origin, callback) => {
+          if (isOriginAllowed(origin)) return callback(null, true);
+          return callback(new Error(`CORS blocked origin: ${origin}`));
+        },
     methods: ["GET", "POST"],
     credentials: true
   }
