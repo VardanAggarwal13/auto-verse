@@ -10,7 +10,7 @@ const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\
 // @access  Private (Dealer)
 router.get('/dealer', [auth, checkRole(['dealer'])], async (req, res) => {
   try {
-    const vehicles = await Vehicle.find({ seller: req.user.id }).sort('-createdAt');
+    const vehicles = await Vehicle.find({ seller: req.user.id }).sort('-createdAt').lean();
     res.json(vehicles);
   } catch (err) {
     console.error(err.message);
@@ -23,19 +23,44 @@ router.get('/dealer', [auth, checkRole(['dealer'])], async (req, res) => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const { brand, fuelType, transmission, minPrice, maxPrice } = req.query;
+    const { brand, fuelType, transmission, minPrice, maxPrice, q, sort, page, limit } = req.query;
     let query = { status: 'available' };
 
     if (brand) query.brand = new RegExp(`^${escapeRegExp(brand)}$`, 'i');
     if (fuelType) query.fuelType = fuelType;
     if (transmission) query.transmission = transmission;
+    const search = String(q || '').trim();
+    if (search) {
+      const rx = new RegExp(escapeRegExp(search), 'i');
+      query.$or = [{ title: rx }, { brand: rx }, { model: rx }];
+    }
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
-    const vehicles = await Vehicle.find(query).sort('-createdAt').populate('seller', 'name email');
+    const sortKey = String(sort || 'latest');
+    const sortSpec =
+      sortKey === 'price-asc'
+        ? { price: 1, createdAt: -1 }
+        : sortKey === 'price-desc'
+          ? { price: -1, createdAt: -1 }
+          : { createdAt: -1 };
+
+    let cursor = Vehicle.find(query)
+      .select('title brand model year price mileage fuelType transmission images status isFeatured createdAt')
+      .sort(sortSpec)
+      .lean();
+
+    // Optional pagination (keeps backwards compatibility when page/limit not provided).
+    const limitNum = limit ? Math.min(Math.max(Number(limit) || 0, 1), 200) : null;
+    const pageNum = page ? Math.max(Number(page) || 1, 1) : null;
+    if (limitNum && pageNum) {
+      cursor = cursor.skip((pageNum - 1) * limitNum).limit(limitNum);
+    }
+
+    const vehicles = await cursor;
     res.json(vehicles);
   } catch (err) {
     console.error(err.message);
@@ -48,7 +73,7 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const vehicle = await Vehicle.findById(req.params.id).populate('seller', 'name email');
+    const vehicle = await Vehicle.findById(req.params.id).populate('seller', 'name email').lean();
     if (!vehicle) {
       return res.status(404).json({ message: 'Vehicle not found' });
     }

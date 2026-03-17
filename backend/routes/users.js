@@ -10,8 +10,14 @@ const { auth } = require('../middleware/auth');
 // @access  Private
 router.get('/wishlist', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).populate('wishlist');
-    res.json(user.wishlist);
+    const user = await User.findById(req.user.id)
+      .select('wishlist')
+      .populate({
+        path: 'wishlist',
+        select: 'title brand model year price mileage fuelType transmission images status isFeatured createdAt',
+      })
+      .lean();
+    res.json(user?.wishlist || []);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

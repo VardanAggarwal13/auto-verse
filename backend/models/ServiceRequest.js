@@ -38,4 +38,7 @@ const serviceRequestSchema = new mongoose.Schema({
   }
 });
 
+serviceRequestSchema.index({ status: 1, createdAt: -1 });
+serviceRequestSchema.index({ assignedTo: 1, createdAt: -1 });
+
 module.exports = mongoose.model('ServiceRequest', serviceRequestSchema);

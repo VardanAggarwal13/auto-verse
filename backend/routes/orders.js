@@ -14,7 +14,7 @@ router.post('/', [auth, checkRole(['customer'])], async (req, res) => {
     const { vehicleId, amount } = req.body;
     
     // Check if vehicle exists and get dealer
-    const vehicle = await Vehicle.findById(vehicleId);
+    const vehicle = await Vehicle.findById(vehicleId).select('seller title price').lean();
     if (!vehicle) {
       return res.status(404).json({ message: 'Vehicle not found' });
     }
@@ -83,7 +83,8 @@ router.get('/my', auth, async (req, res) => {
     const orders = await Order.find({ customer: req.user.id })
       .populate('vehicle', 'title brand images')
       .populate('dealer', 'name email')
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .lean();
     res.json(orders);
   } catch (err) {
     console.error(err.message);
@@ -99,7 +100,8 @@ router.get('/received', [auth, checkRole(['dealer'])], async (req, res) => {
     const orders = await Order.find({ dealer: req.user.id })
       .populate('vehicle', 'title brand images')
       .populate('customer', 'name email')
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .lean();
     res.json(orders);
   } catch (err) {
     console.error(err.message);

@@ -26,7 +26,7 @@ const Index = () => {
     const loadFeatured = async () => {
       setFeaturedLoading(true);
       try {
-        const response = await apiClient.get("/vehicles");
+        const response = await apiClient.get("/vehicles", { params: { page: 1, limit: 200, sort: "latest" } });
         const data = Array.isArray(response.data) ? response.data : [];
         const featured = data.filter((v: any) => Boolean(v?.isFeatured));
         setFeaturedCars(featured.length > 0 ? featured : data.slice(0, 8));

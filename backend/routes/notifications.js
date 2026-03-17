@@ -8,9 +8,13 @@ const { auth, checkRole } = require('../middleware/auth');
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
+    const limitRaw = Number(req.query?.limit);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 20;
     const notifications = await Notification.find({ recipient: req.user.id })
+      .select('title message type read link createdAt')
       .sort('-createdAt')
-      .limit(20);
+      .limit(limit)
+      .lean();
     res.json(notifications);
   } catch (err) {
     console.error(err.message);

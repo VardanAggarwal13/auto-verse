@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Vehicle = require('../models/Vehicle');
 const Inquiry = require('../models/Inquiry');
 const Booking = require('../models/Booking');
@@ -12,21 +13,29 @@ router.get('/stats', [auth, checkRole(['dealer'])], async (req, res) => {
   try {
     const dealerId = req.user.id;
 
-    const [totalVehicles, totalInquiries, totalBookings, soldVehicles] = await Promise.all([
+    const dealerObjectId = mongoose.Types.ObjectId.isValid(dealerId)
+      ? new mongoose.Types.ObjectId(dealerId)
+      : null;
+
+    const [totalVehicles, totalInquiries, totalBookings, salesAgg] = await Promise.all([
       Vehicle.countDocuments({ seller: dealerId }),
       Inquiry.countDocuments({ dealer: dealerId }),
       Booking.countDocuments({ dealer: dealerId }),
-      Vehicle.find({ seller: dealerId, status: 'sold' })
+      Vehicle.aggregate([
+        { $match: { seller: dealerObjectId, status: 'sold' } },
+        { $group: { _id: null, totalSales: { $sum: '$price' } } },
+      ]).catch(() => []),
     ]);
 
-    const totalSales = soldVehicles.reduce((acc, vehicle) => acc + vehicle.price, 0);
+    const totalSales = salesAgg?.[0]?.totalSales || 0;
 
     // Get recent inquiries
     const recentInquiries = await Inquiry.find({ dealer: dealerId })
       .populate('customer', 'name')
       .populate('vehicle', 'title')
       .sort('-createdAt')
-      .limit(5);
+      .limit(5)
+      .lean();
 
     // Get upcoming test drives
     const upcomingBookings = await Booking.find({ 
@@ -37,7 +46,8 @@ router.get('/stats', [auth, checkRole(['dealer'])], async (req, res) => {
       .populate('customer', 'name')
       .populate('vehicle', 'title')
       .sort('bookingDate')
-      .limit(5);
+      .limit(5)
+      .lean();
 
     res.json({
       stats: {

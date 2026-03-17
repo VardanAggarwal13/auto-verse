@@ -53,7 +53,7 @@ const CarListings = () => {
   useEffect(() => {
     const loadBrands = async () => {
       try {
-        const response = await apiClient.get("/vehicles");
+        const response = await apiClient.get("/vehicles", { params: { page: 1, limit: 200 } });
         const data = Array.isArray(response.data) ? response.data : [];
         setBrandOptions(buildBrandOptions(data));
       } catch (error) {
@@ -75,18 +75,26 @@ const CarListings = () => {
       if (brand !== "All") params.brand = brand;
       if (fuel !== "All") params.fuelType = fuel;
       if (transmission !== "All") params.transmission = transmission;
+      if (search) params.q = search;
+      if (sort) params.sort = sort;
 
       const response = await apiClient.get("/vehicles", { params });
       let data = response.data;
 
-      // Client side search and sort (backend has simple filtering)
-      if (search) {
-        const q = search.toLowerCase();
-        data = data.filter((v: any) => v.title.toLowerCase().includes(q) || v.brand.toLowerCase().includes(q));
+      // Backwards-compatible fallback if the backend returns unfiltered/unsorted arrays.
+      if (Array.isArray(data)) {
+        if (search) {
+          const q = search.toLowerCase();
+          data = data.filter(
+            (v: any) =>
+              String(v?.title || "").toLowerCase().includes(q) ||
+              String(v?.brand || "").toLowerCase().includes(q) ||
+              String(v?.model || "").toLowerCase().includes(q),
+          );
+        }
+        if (sort === "price-asc") data.sort((a: any, b: any) => a.price - b.price);
+        if (sort === "price-desc") data.sort((a: any, b: any) => b.price - a.price);
       }
-
-      if (sort === "price-asc") data.sort((a: any, b: any) => a.price - b.price);
-      if (sort === "price-desc") data.sort((a: any, b: any) => b.price - a.price);
 
       setVehicles(data);
       if (brandOptions.length === 0) {

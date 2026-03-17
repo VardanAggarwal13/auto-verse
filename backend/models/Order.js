@@ -36,4 +36,8 @@ const orderSchema = new mongoose.Schema({
   }
 });
 
+orderSchema.index({ customer: 1, createdAt: -1 });
+orderSchema.index({ dealer: 1, createdAt: -1 });
+orderSchema.index({ paymentStatus: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Order', orderSchema);

@@ -40,4 +40,7 @@ const vehicleInspectionSchema = new mongoose.Schema({
   }
 });
 
+vehicleInspectionSchema.index({ vehicle: 1, inspectionDate: -1 });
+vehicleInspectionSchema.index({ inspector: 1, inspectionDate: -1 });
+
 module.exports = mongoose.model('VehicleInspection', vehicleInspectionSchema);

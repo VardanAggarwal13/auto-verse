@@ -32,4 +32,8 @@ const inquirySchema = new mongoose.Schema({
   }
 });
 
+inquirySchema.index({ customer: 1, createdAt: -1 });
+inquirySchema.index({ dealer: 1, createdAt: -1 });
+inquirySchema.index({ status: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Inquiry', inquirySchema);

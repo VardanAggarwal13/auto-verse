@@ -35,13 +35,26 @@ router.get('/stats', [auth, checkRole(['admin'])], async (req, res) => {
       Inquiry.countDocuments(),
       Booking.countDocuments(),
       Order.countDocuments(),
-      Order.find().populate('customer', 'name').populate('vehicle', 'title').sort('-createdAt').limit(5),
-      User.find().sort('-createdAt').limit(5)
+      Order.find()
+        .select('customer vehicle dealer amount paymentStatus orderStatus createdAt')
+        .populate('customer', 'name')
+        .populate('vehicle', 'title')
+        .sort('-createdAt')
+        .limit(5)
+        .lean(),
+      User.find()
+        .select('name email role createdAt')
+        .sort('-createdAt')
+        .limit(5)
+        .lean()
     ]);
 
-    // Calculate total revenue
-    const allOrders = await Order.find({ paymentStatus: 'paid' });
-    const totalRevenue = allOrders.reduce((acc, order) => acc + order.amount, 0);
+    // Calculate total revenue (paid orders only) without loading all rows into memory.
+    const revenueAgg = await Order.aggregate([
+      { $match: { paymentStatus: 'paid' } },
+      { $group: { _id: null, totalRevenue: { $sum: '$amount' } } },
+    ]);
+    const totalRevenue = revenueAgg?.[0]?.totalRevenue || 0;
 
     res.json({
       stats: {
@@ -70,7 +83,7 @@ router.get('/stats', [auth, checkRole(['admin'])], async (req, res) => {
 // @access  Private (Admin)
 router.get('/users', [auth, checkRole(['admin'])], async (req, res) => {
   try {
-    const users = await User.find().sort('-createdAt').select('-password');
+    const users = await User.find().sort('-createdAt').select('-password').lean();
     res.json(users);
   } catch (err) {
     console.error(err.message);
@@ -167,7 +180,7 @@ router.delete('/users/:id', [auth, checkRole(['admin'])], async (req, res) => {
 // @access  Private (Admin)
 router.get('/vehicles', [auth, checkRole(['admin'])], async (req, res) => {
   try {
-    const vehicles = await Vehicle.find().populate('seller', 'name email').sort('-createdAt');
+    const vehicles = await Vehicle.find().populate('seller', 'name email').sort('-createdAt').lean();
     res.json(vehicles);
   } catch (err) {
     console.error(err.message);
@@ -305,7 +318,8 @@ router.get('/inquiries', [auth, checkRole(['admin'])], async (req, res) => {
       .populate('customer', 'name email')
       .populate('dealer', 'name email')
       .sort('-createdAt')
-      .limit(200);
+      .limit(200)
+      .lean();
     res.json(inquiries);
   } catch (err) {
     console.error(err.message);
@@ -323,7 +337,8 @@ router.get('/bookings', [auth, checkRole(['admin'])], async (req, res) => {
       .populate('customer', 'name email')
       .populate('dealer', 'name email')
       .sort('-createdAt')
-      .limit(200);
+      .limit(200)
+      .lean();
     res.json(bookings);
   } catch (err) {
     console.error(err.message);
@@ -341,7 +356,8 @@ router.get('/orders', [auth, checkRole(['admin'])], async (req, res) => {
       .populate('customer', 'name email')
       .populate('dealer', 'name email')
       .sort('-createdAt')
-      .limit(200);
+      .limit(200)
+      .lean();
     res.json(orders);
   } catch (err) {
     console.error(err.message);

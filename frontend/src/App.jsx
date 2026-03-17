@@ -21,6 +21,7 @@ import WishlistPage from "./pages/dashboard/Wishlist";
 import BookingsPage from "./pages/dashboard/Bookings";
 import OrdersPage from "./pages/dashboard/Orders";
 import NotificationsPage from "./pages/dashboard/Notifications";
+import SettingsPage from "./pages/dashboard/Settings";
 import DealerDashboard from "./pages/dashboard/dealer/Index";
 import ManageInventory from "./pages/dashboard/dealer/Inventory";
 import InquiriesReceived from "./pages/dashboard/dealer/InquiriesReceived";
@@ -43,6 +44,7 @@ import { io } from "socket.io-client";
 import { useEffect } from "react";
 
 const queryClient = new QueryClient();
+const NOTIFICATIONS_KEY = "dashboard.settings.notifications";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -81,7 +83,8 @@ const App = () => {
       socket.emit("join", user.id);
 
       socket.on("notification", (data) => {
-        toast.info(data.message || "New notification received!");
+        const enabled = localStorage.getItem(NOTIFICATIONS_KEY) !== "0";
+        if (enabled) toast.info(data.message || "New notification received!");
       });
 
       return () => {
@@ -176,7 +179,7 @@ const App = () => {
             <Route path="/dashboard/settings" element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <ProfilePage />
+                  <SettingsPage />
                 </DashboardLayout>
               </ProtectedRoute>
             } />

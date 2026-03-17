@@ -19,7 +19,8 @@ router.get('/customers', [auth, checkRole(['staff', 'admin'])], async (req, res)
   try {
     const customers = await User.find({ role: 'customer' })
       .select('name email role')
-      .sort('name');
+      .sort('name')
+      .lean();
     res.json(customers);
   } catch (err) {
     console.error(err.message);
@@ -35,7 +36,8 @@ router.get('/vehicles', [auth, checkRole(['staff', 'admin'])], async (req, res) 
     const vehicles = await Vehicle.find()
       .select('title brand model year status seller createdAt')
       .populate('seller', 'name email role')
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .lean();
     res.json(vehicles);
   } catch (err) {
     console.error(err.message);
@@ -51,7 +53,8 @@ router.get('/services', [auth, checkRole(['staff', 'admin'])], async (req, res) 
     const services = await ServiceRequest.find()
       .populate('customer', 'name email')
       .populate('vehicle', 'title brand')
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .lean();
     res.json(services);
   } catch (err) {
     console.error(err.message);
@@ -163,7 +166,8 @@ router.get('/inspections', [auth, checkRole(['staff', 'admin'])], async (req, re
       .populate('vehicle', 'title brand model year')
       .populate('inspector', 'name')
       .sort('-inspectionDate')
-      .limit(50);
+      .limit(50)
+      .lean();
 
     res.json(
       inspections.map((i) => ({
@@ -187,7 +191,8 @@ router.get('/inspections/:vehicleId', auth, async (req, res) => {
   try {
     const inspections = await VehicleInspection.find({ vehicle: req.params.vehicleId })
       .populate('inspector', 'name')
-      .sort('-inspectionDate');
+      .sort('-inspectionDate')
+      .lean();
     res.json(inspections);
   } catch (err) {
     console.error(err.message);
