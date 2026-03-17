@@ -1,8 +1,13 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Heart, Fuel, Gauge, Settings2, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Car } from "@/data/mockData";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
+import apiClient from "@/api/apiClient";
+import { useAuth } from "@/hooks/useAuth";
+import type { MouseEvent } from "react";
+import { useState } from "react";
 
 interface CarCardProps {
   car: Car;
@@ -10,6 +15,10 @@ interface CarCardProps {
 }
 
 const CarCard = ({ car, index = 0 }: any) => {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+  const [wishlisted, setWishlisted] = useState(false);
+
   const carId = car?._id ?? car?.id;
   const title = car?.title ?? car?.model ?? "";
   const brand = car?.brand ?? "";
@@ -20,6 +29,47 @@ const CarCard = ({ car, index = 0 }: any) => {
         "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80";
   const priceNumber = typeof car?.price === "number" ? car.price : Number(car?.price);
   const mileageNumber = typeof car?.mileage === "number" ? car.mileage : Number(car?.mileage);
+
+  const addToWishlist = async (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!carId) {
+      toast.error("This vehicle can't be added to wishlist yet.");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Please login to add to wishlist");
+      navigate("/login");
+      return;
+    }
+
+    if (loading) return;
+    if (user && user.role && user.role !== "customer") {
+      toast.error("Only customers can use wishlist");
+      return;
+    }
+
+    try {
+      await apiClient.post(`/users/wishlist/${carId}`);
+
+      // Verify it actually got saved (and will show in /dashboard/wishlist).
+      const verify = await apiClient.get("/users/wishlist");
+      const items = Array.isArray(verify.data) ? verify.data : [];
+      const exists = items.some((v: any) => String(v?._id) === String(carId));
+
+      if (exists) {
+        setWishlisted(true);
+        toast.success("Added to wishlist");
+      } else {
+        toast.error("Wishlist save failed (please try again)");
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to add to wishlist");
+    }
+  };
 
   return (
     <motion.div
@@ -40,8 +90,13 @@ const CarCard = ({ car, index = 0 }: any) => {
               {car.status === 'available' && <Badge className="bg-green-500 text-white text-xs">Available</Badge>}
               {car.isFeatured && <Badge className="bg-gold text-surface-dark text-xs">Featured</Badge>}
             </div>
-            <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors">
-              <Heart className="w-4 h-4" />
+            <button
+              type="button"
+              onClick={addToWishlist}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+              title="Add to wishlist"
+            >
+              <Heart className="w-4 h-4" fill={wishlisted ? "currentColor" : "none"} />
             </button>
           </div>
 

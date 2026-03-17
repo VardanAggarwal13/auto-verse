@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Trash2, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PageLoader from "@/components/ui/page-loader";
+import { Link } from "react-router-dom";
 
 interface Vehicle {
     _id: string;
@@ -75,8 +76,10 @@ const WishlistPage = () => {
                                         <Button variant="outline" size="icon" onClick={() => removeFromWishlist(vehicle._id)} className="text-destructive hover:bg-destructive/10">
                                             <Trash2 className="w-4 h-4" />
                                         </Button>
-                                        <Button className="gap-2">
-                                            <ShoppingCart className="w-4 h-4" /> View
+                                        <Button asChild className="gap-2">
+                                            <Link to={`/cars/${vehicle._id}`}>
+                                                <ShoppingCart className="w-4 h-4" /> View
+                                            </Link>
                                         </Button>
                                     </div>
                                 </div>

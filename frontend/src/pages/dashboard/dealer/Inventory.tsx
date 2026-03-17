@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/api/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,25 +32,73 @@ interface Vehicle {
     images: string[];
 }
 
+type InventoryFormState = {
+    title: string;
+    brand: string;
+    model: string;
+    year: number;
+    price: number | "";
+    mileage: number | "";
+    fuelType: string;
+    transmission: string;
+    bodyType: string;
+    color: string;
+    description: string;
+    images: string; // Comma separated URLs
+};
+
 const ManageInventory = () => {
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
     const [imageUploading, setImageUploading] = useState(false);
-    const [formData, setFormData] = useState({
-        title: "",
-        brand: "",
-        model: "",
-        year: new Date().getFullYear(),
-        price: 0,
-        mileage: 0,
-        fuelType: "Petrol",
-        transmission: "Manual",
-        bodyType: "Sedan",
-        color: "",
-        description: "",
-        images: "", // Comma separated URLs
-    });
+
+    const emptyForm = useMemo(
+        (): InventoryFormState => ({
+            title: "",
+            brand: "",
+            model: "",
+            year: new Date().getFullYear(),
+            price: "",
+            mileage: "",
+            fuelType: "Petrol",
+            transmission: "Manual",
+            bodyType: "Sedan",
+            color: "",
+            description: "",
+            images: "", // Comma separated URLs
+        }),
+        []
+    );
+
+    const [formData, setFormData] = useState(emptyForm);
+
+    const openCreateDialog = () => {
+        setEditingVehicleId(null);
+        setFormData(emptyForm);
+        setIsDialogOpen(true);
+    };
+
+    const openEditDialog = (vehicle: Vehicle) => {
+        setEditingVehicleId(vehicle._id);
+        setFormData({
+            title: vehicle.title || "",
+            brand: vehicle.brand || "",
+            model: vehicle.model || "",
+            year: vehicle.year || new Date().getFullYear(),
+            price: typeof vehicle.price === "number" ? vehicle.price : Number(vehicle.price) || "",
+            mileage: typeof vehicle.mileage === "number" ? vehicle.mileage : Number(vehicle.mileage) || "",
+            fuelType: vehicle.fuelType || "Petrol",
+            transmission: vehicle.transmission || "Manual",
+            bodyType: vehicle.bodyType || "Sedan",
+            color: vehicle.color || "",
+            description: vehicle.description || "",
+            images: Array.isArray(vehicle.images) ? vehicle.images.join(", ") : "",
+        });
+        setIsDialogOpen(true);
+    };
 
     const currentImages = useMemo(() => {
         return formData.images
@@ -131,33 +178,45 @@ const ManageInventory = () => {
         }
     };
 
-    const handleInviteSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (saving) return;
+        setSaving(true);
         try {
-            await apiClient.post("/vehicles", {
+            const payload = {
                 ...formData,
+                price: Number(formData.price),
+                mileage: Number(formData.mileage),
                 images: formData.images.split(',').map(url => url.trim()).filter(url => url !== "")
-            });
-            toast.success("Vehicle added successfully");
+            };
+
+            if (formData.price === "" || formData.mileage === "") {
+                toast.error("Please enter price and mileage");
+                return;
+            }
+
+            if (!Number.isFinite(payload.price) || !Number.isFinite(payload.mileage)) {
+                toast.error("Please enter a valid price and mileage");
+                return;
+            }
+
+            if (editingVehicleId) {
+                await apiClient.patch(`/vehicles/${editingVehicleId}`, payload);
+                toast.success("Vehicle updated successfully");
+            } else {
+                await apiClient.post("/vehicles", payload);
+                toast.success("Vehicle added successfully");
+            }
+
             setIsDialogOpen(false);
             fetchVehicles();
-            setFormData({
-                title: "",
-                brand: "",
-                model: "",
-                year: new Date().getFullYear(),
-                price: 0,
-                mileage: 0,
-                fuelType: "Petrol",
-                transmission: "Manual",
-                bodyType: "Sedan",
-                color: "",
-                description: "",
-                images: "",
-            });
+            setEditingVehicleId(null);
+            setFormData(emptyForm);
         } catch (error) {
-            console.error("Failed to add vehicle", error);
-            toast.error("Failed to add vehicle");
+            console.error("Failed to save vehicle", error);
+            toast.error((error as any)?.response?.data?.message || "Failed to save vehicle");
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -165,7 +224,14 @@ const ManageInventory = () => {
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: name === 'price' || name === 'year' || name === 'mileage' ? Number(value) : value
+            [name]:
+                name === "year"
+                    ? Number(value)
+                    : name === "price" || name === "mileage"
+                      ? value === ""
+                          ? ""
+                          : Number(value)
+                      : value
         }));
     };
 
@@ -177,17 +243,26 @@ const ManageInventory = () => {
                     <p className="text-muted-foreground">Add, edit, or remove vehicles from your listings.</p>
                 </div>
 
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog
+                    open={isDialogOpen}
+                    onOpenChange={(open) => {
+                        setIsDialogOpen(open);
+                        if (!open) {
+                            setEditingVehicleId(null);
+                            setFormData(emptyForm);
+                        }
+                    }}
+                >
                     <DialogTrigger asChild>
-                        <Button className="gap-2">
+                        <Button className="gap-2" onClick={openCreateDialog}>
                             <Plus className="w-4 h-4" /> Add Vehicle
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
-                            <DialogTitle>Add New Vehicle</DialogTitle>
+                            <DialogTitle>{editingVehicleId ? "Edit Vehicle" : "Add New Vehicle"}</DialogTitle>
                         </DialogHeader>
-                        <form onSubmit={handleInviteSubmit} className="space-y-4 py-4">
+                        <form onSubmit={handleSubmit} className="space-y-4 py-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="title">Title</Label>
@@ -291,7 +366,18 @@ const ManageInventory = () => {
                                 <Label htmlFor="description">Description</Label>
                                 <Textarea id="description" name="description" value={formData.description} onChange={handleChange} required />
                             </div>
-                            <Button type="submit" className="w-full">Save Vehicle</Button>
+                            <Button type="submit" className="w-full" disabled={saving}>
+                                {saving ? (
+                                    <span className="inline-flex items-center gap-2">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </span>
+                                ) : editingVehicleId ? (
+                                    "Update Vehicle"
+                                ) : (
+                                    "Save Vehicle"
+                                )}
+                            </Button>
                         </form>
                     </DialogContent>
                 </Dialog>
@@ -336,7 +422,15 @@ const ManageInventory = () => {
                                     <td className="p-4 capitalize text-sm">{vehicle.status}</td>
                                     <td className="p-4">
                                         <div className="flex gap-2">
-                                            <Button variant="ghost" size="icon"><Edit className="w-4 h-4" /></Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => openEditDialog(vehicle)}
+                                                title="Edit vehicle"
+                                            >
+                                                <Edit className="w-4 h-4" />
+                                            </Button>
                                             <Button variant="ghost" size="icon" onClick={() => handleDelete(vehicle._id)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
                                         </div>
                                     </td>
