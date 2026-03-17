@@ -187,7 +187,11 @@ router.post('/forgot-password', async (req, res) => {
     user.resetPasswordExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
-    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:8080').replace(/\/$/, '');
+    const defaultFrontendUrl =
+      process.env.NODE_ENV === 'production'
+        ? 'https://auto-verse-omega.vercel.app'
+        : 'http://localhost:8080';
+    const frontendUrl = (process.env.FRONTEND_URL || defaultFrontendUrl).replace(/\/$/, '');
     const resetUrl = `${frontendUrl}/reset-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(rawToken)}`;
 
     const subject = 'Reset your AutoVerse password';

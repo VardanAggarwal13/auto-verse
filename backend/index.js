@@ -2,10 +2,17 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const fs = require('fs');
 const path = require('path');
 
-// Load environment variables from backend/.env
-dotenv.config({ path: path.join(__dirname, '.env') });
+// Load local environment variables in development only.
+// On Render/production, rely on platform-provided environment variables instead of a committed .env file.
+if (process.env.NODE_ENV !== 'production') {
+  const localEnvPath = path.join(__dirname, '.env');
+  if (fs.existsSync(localEnvPath)) {
+    dotenv.config({ path: localEnvPath });
+  }
+}
 
 const app = express();
 
@@ -22,6 +29,7 @@ const allowedOrigins = corsOriginsRaw
       'http://127.0.0.1:8080',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:3000',
+      'https://auto-verse-omega.vercel.app',
     ];
 
 const parseOrigin = (origin) => {

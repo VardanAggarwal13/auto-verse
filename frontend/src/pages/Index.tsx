@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Search, ArrowRight, Shield, Award, Headphones, Star, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import CarCard from "@/components/cars/CarCard";
-import { cars, brands, testimonials, stats, formatPrice } from "@/data/mockData";
-import { useState } from "react";
+import { brands, testimonials, stats } from "@/data/mockData";
+import { useEffect, useState } from "react";
+import apiClient from "@/api/apiClient";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -18,7 +19,27 @@ const fadeUp = {
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const featuredCars = cars.filter((c) => c.isFeatured);
+  const [featuredCars, setFeaturedCars] = useState<any[]>([]);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+
+  useEffect(() => {
+    const loadFeatured = async () => {
+      setFeaturedLoading(true);
+      try {
+        const response = await apiClient.get("/vehicles");
+        const data = Array.isArray(response.data) ? response.data : [];
+        const featured = data.filter((v: any) => Boolean(v?.isFeatured));
+        setFeaturedCars(featured.length > 0 ? featured : data.slice(0, 8));
+      } catch (error) {
+        console.error("Failed to fetch featured vehicles", error);
+        setFeaturedCars([]);
+      } finally {
+        setFeaturedLoading(false);
+      }
+    };
+
+    loadFeatured();
+  }, []);
 
   return (
     <Layout>
@@ -121,9 +142,19 @@ const Index = () => {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredCars.map((car, i) => (
-              <CarCard key={car.id} car={car} index={i} />
-            ))}
+            {featuredLoading ? (
+              <div className="col-span-full text-center py-10 text-muted-foreground">
+                Loading featured cars...
+              </div>
+            ) : featuredCars.length > 0 ? (
+              featuredCars.map((car, i) => (
+                <CarCard key={car?._id || car?.id || i} car={car} index={i} />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-10 text-muted-foreground">
+                No featured cars available right now.
+              </div>
+            )}
           </div>
         </div>
       </section>

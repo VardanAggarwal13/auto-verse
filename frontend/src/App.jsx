@@ -70,7 +70,13 @@ const App = () => {
 
   useEffect(() => {
     if (user?.id) {
-      const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+      const isLocalhost =
+        window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const defaultSocketUrl = isLocalhost
+        ? "http://localhost:5000"
+        : "https://auto-verse1.onrender.com";
+
+      const socketUrl = import.meta.env.VITE_SOCKET_URL || defaultSocketUrl;
       const socket = io(socketUrl);
       socket.emit("join", user.id);
 

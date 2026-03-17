@@ -1,8 +1,7 @@
 import { Link } from "react-router-dom";
 import { Heart, Fuel, Gauge, Settings2, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Car, formatPrice } from "@/data/mockData";
+import { Car } from "@/data/mockData";
 import { motion } from "framer-motion";
 
 interface CarCardProps {
@@ -11,19 +10,30 @@ interface CarCardProps {
 }
 
 const CarCard = ({ car, index = 0 }: any) => {
+  const carId = car?._id ?? car?.id;
+  const title = car?.title ?? car?.model ?? "";
+  const brand = car?.brand ?? "";
+  const primaryImage =
+    car?.images && car.images.length > 0
+      ? car.images[0]
+      : car?.image ||
+        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80";
+  const priceNumber = typeof car?.price === "number" ? car.price : Number(car?.price);
+  const mileageNumber = typeof car?.mileage === "number" ? car.mileage : Number(car?.mileage);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
-      <Link to={`/cars/${car._id}`} className="block group">
+      <Link to={carId ? `/cars/${carId}` : "/cars"} className="block group">
         <div className="bg-card rounded-xl overflow-hidden card-elevated border border-border/50">
           {/* Image */}
           <div className="relative aspect-[16/10] overflow-hidden">
             <img
-              src={car.images && car.images.length > 0 ? car.images[0] : "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80"}
-              alt={`${car.brand} ${car.title}`}
+              src={primaryImage}
+              alt={`${brand} ${title}`.trim()}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
             <div className="absolute top-3 left-3 flex gap-2">
@@ -39,11 +49,13 @@ const CarCard = ({ car, index = 0 }: any) => {
           <div className="p-4">
             <div className="flex items-start justify-between mb-1">
               <div>
-                <p className="text-xs text-muted-foreground font-medium">{car.brand}</p>
-                <h3 className="font-display font-semibold text-card-foreground line-clamp-1">{car.title}</h3>
+                <p className="text-xs text-muted-foreground font-medium">{brand}</p>
+                <h3 className="font-display font-semibold text-card-foreground line-clamp-1">{title}</h3>
               </div>
               <div className="text-right">
-                <p className="font-display font-bold text-primary text-lg">${car.price.toLocaleString()}</p>
+                <p className="font-display font-bold text-primary text-lg">
+                  {Number.isFinite(priceNumber) ? `$${priceNumber.toLocaleString()}` : car?.price}
+                </p>
               </div>
             </div>
 
@@ -55,10 +67,11 @@ const CarCard = ({ car, index = 0 }: any) => {
                 <Settings2 className="w-3.5 h-3.5" /> {car.transmission}
               </div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Gauge className="w-3.5 h-3.5" /> {car.mileage.toLocaleString()} km
+                <Gauge className="w-3.5 h-3.5" />{" "}
+                {Number.isFinite(mileageNumber) ? `${mileageNumber.toLocaleString()} km` : "—"}
               </div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Calendar className="w-3.5 h-3.5" /> {car.year}
+                <Calendar className="w-3.5 h-3.5" /> {car.year ?? "—"}
               </div>
             </div>
           </div>
