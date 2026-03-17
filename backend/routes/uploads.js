@@ -93,8 +93,31 @@ router.post("/images", [auth, checkRole(["dealer", "admin"]), upload.array("imag
     return res.status(201).json({ urls });
   } catch (err) {
     const msg = typeof err?.message === "string" ? err.message : "Upload failed";
+    console.error("[uploads/images] error:", err);
     res.status(500).json({ message: msg });
   }
+});
+
+// Multer errors happen before the async handler body runs, so normalize them here.
+router.use((err, req, res, next) => {
+  if (!err) return next();
+
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ message: "Image too large (max 5MB per file)" });
+    }
+    if (err.code === "LIMIT_FILE_COUNT") {
+      return res.status(400).json({ message: `Too many files (max ${MAX_FILES})` });
+    }
+    return res.status(400).json({ message: err.message || "Invalid upload" });
+  }
+
+  // fileFilter errors land here (e.g., invalid mime type)
+  if (typeof err?.message === "string") {
+    return res.status(400).json({ message: err.message });
+  }
+
+  return next(err);
 });
 
 module.exports = router;
